@@ -1,0 +1,16 @@
+module zvn (
+    input a[8],
+    input b[8],
+    input addOut[8],
+    input alufn[6],
+    output z,
+    output v,
+    output n
+  ) {
+
+  always {
+    z = !(addOut[7:0]);
+    v = (a[7] && addOut[7] &&(b[7] ^ alufn[0])) || (!a[7] && addOut[7] && !(b[7] ^ alufn[0]));
+    n = addOut[7];
+  }
+}
