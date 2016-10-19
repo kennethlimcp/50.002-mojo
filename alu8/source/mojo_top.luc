@@ -1,0 +1,102 @@
+module mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,      // AVR RX buffer full
+
+    input io_dip[3][8],
+    output io_led[3][8]
+  ) {
+
+  sig rst;                  // reset signal
+
+  adder8 add;
+  zvn zvn;
+  boole8 bool;
+  shift8 shift;
+  compare8 cmp;
+
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+  }
+
+  always {
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    led = 8h00;
+    spi_miso   = bz;
+    spi_channel = bzzzz;
+    avr_rx = bz;
+
+    //boolean function
+    bool.a = io_dip[0];
+    bool.b = io_dip[1];
+    bool.alufn = io_dip[2][5:0];
+
+    //add/sub function
+    add.a = io_dip[0];  //1st set of DIP switches as input for A
+    add.b = io_dip[1];  //2nd set of DIP switched as input for B
+    add.alufn = io_dip[2][5:0];
+
+    zvn.a = io_dip[0];
+    zvn.b = io_dip[1];
+    zvn.alufn = io_dip[2][5:0];
+    zvn.addOut = add.out;
+
+    //compare function
+    cmp.z = zvn.z;
+    cmp.v = zvn.v;
+    cmp.n = zvn.n;
+    cmp.alufn = io_dip[2][5:0];    //shift function
+
+    //shift function
+    shift.a = io_dip[0];  //1st set of DIP switches as input for A
+    shift.b = io_dip[1];  //2nd set of DIP switched as input for B
+    shift.alufn = io_dip[2][5:0];
+
+    io_led = 3x{{8h00}};
+
+    io_led[1][0] = zvn.z;
+
+    case(io_dip[2][5:0]) {
+      h00:
+        io_led[0] = add.out;  //ADD
+      h01:
+        io_led[0] = add.out;  //SUB
+      h18:
+        io_led[0] = bool.out; //AND
+      h1E:
+        io_led[0] = bool.out; //OR
+      h16:
+        io_led[0] = bool.out; //XOR
+      h1A:
+        io_led[0] = bool.out; //A
+      h20:
+        io_led[0] = shift.out;
+      h21:
+        io_led[0] = shift.out;
+      h23:
+        io_led[0] = shift.out;
+      h23:
+        io_led[0] = shift.out;
+      h33:
+        io_led[0] = cmp.out;
+      h35:
+        io_led[0] = cmp.out;
+      h37:
+        io_led[0] = cmp.out;
+      default:
+        io_led[0] = 0;
+    }
+  }
+}
