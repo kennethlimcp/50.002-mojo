@@ -49,7 +49,7 @@ module boole8 (
       out = a ~^ b; //xnor
     4b1010:
       out = a;
-    4b1010:
+    4b1100:
       out = b;
     4b1110:
       out = a | b;  //or
