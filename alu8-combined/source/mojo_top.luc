@@ -1,0 +1,366 @@
+module mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,      // AVR RX buffer full
+
+    input io_dip[3][8],
+    input io_button[5],
+    output io_led[3][8]
+    
+  ) {
+
+  sig rst;                  // reset signal
+  sig testA[8];
+  sig testB[8];
+  sig testalufn[6];
+  adder8 add;
+  zvn zvn;
+  boole8 bool;
+  shift8 shift;
+  compare8 cmp;
+  multiply8 mul;
+  
+  
+
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+     counter slowclock(#SIZE(1),#DIV(24));
+  }
+
+   .clk(slowclock.value) {
+     .rst(io_button[1]) {
+       fsm state = {ADD, SUB, AND, OR, XOR, A, SHL, SHR, SRA, CMPEQ, CMPLT, CMPLE, MUL, DONE};
+       dff status[12];
+    }
+   }    
+
+  always {
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    led = 8h00;
+    spi_miso   = bz;
+    spi_channel = bzzzz;
+    avr_rx = bz;
+    
+    slowclock.rst = rst;
+    
+    
+    io_led = 3x{{8h00}};
+     
+    testA = 0;
+    testB = 0;
+    testalufn = 0;
+    status.d = 0;
+    
+    
+    //multiply function
+    mul.a = testA;
+    mul.b = testB;
+    mul.alufn = testalufn;
+    
+    //boolean function
+    bool.a = testA;
+    bool.b = testB;
+    bool.alufn = testalufn;
+
+    //add/sub function
+    add.a = testA;  //1st set of DIP switches as input for A
+    add.b = testB;  //2nd set of DIP switched as input for B
+    add.alufn = testalufn;
+
+    zvn.a = testA;
+    zvn.b = testB;
+    zvn.alufn = testalufn;
+    zvn.addOut = add.out;
+
+    //compare function
+    cmp.z = zvn.z;
+    cmp.v = zvn.v;
+    cmp.n = zvn.n;
+    cmp.alufn = testalufn;
+    
+    //shift function
+    shift.a = testA;  //1st set of DIP switches as input for A
+    shift.b = testB;  //2nd set of DIP switched as input for B
+    shift.alufn = testalufn;
+    
+    //{ADD, SUB, AND, OR, A, SHL, SHR, SRA, CMPEQ, CMPLT, CMPLE};
+    case(state.q) {
+      //0 - 0x00
+      state.ADD:
+        testA = h01 +  io_dip[0];
+        testB = h01 + io_dip[1];
+        testalufn = h00 + io_dip[2];
+        
+        add.a = testA;  //1st set of DIP switches as input for A
+        add.b = testB;  //2nd set of DIP switched as input for B
+        add.alufn = testalufn;
+                
+        if(add.out == h02)
+          status.d = status.q | 1b1 << 0;
+        
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];   
+        state.d = state.SUB;
+      
+      //1 - 0x01
+      state.SUB:
+        testA = h02 +  io_dip[0];
+        testB = h01 + io_dip[1];
+        testalufn = h01 + io_dip[2];
+        
+        add.a = testA;  //1st set of DIP switches as input for A
+        add.b = testB;  //2nd set of DIP switched as input for B
+        add.alufn = testalufn;
+                        
+        if(add.out == h01)
+          status.d = status.q | 1b1 << 1;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];   
+        
+        state.d = state.AND;
+     
+       //2
+       state.AND:
+        testA = h0F +  io_dip[0];
+        testB = hFF + io_dip[1];
+        testalufn = h18 + io_dip[2];
+  
+        bool.a = testA;
+        bool.b = testB;
+        bool.alufn = testalufn;
+                
+        if(bool.out == h0F)
+          status.d = status.q | 1b1 << 2;
+        else
+          status.d = status.q;
+
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];   
+                
+        state.d = state.OR;
+      
+      //3 - 0x1E
+      state.OR:
+        testA = h0F +  io_dip[0];
+        testB = hF0 + io_dip[1];
+        testalufn = h1E + io_dip[2];
+
+        bool.a = testA;
+        bool.b = testB;
+        bool.alufn = testalufn;
+        
+        if(bool.out == hFF)
+          status.d = status.q | 1b1 << 3;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];  
+                
+        state.d = state.XOR;
+             
+      //4 - 0x16
+      state.XOR:
+        testA = h0F +  io_dip[0];
+        testB = hFF + io_dip[1];
+        testalufn = h16 + io_dip[2];
+
+        bool.a = testA;
+        bool.b = testB;
+        bool.alufn = testalufn;
+        
+        if(bool.out == hF0)
+          status.d = status.q | 1b1 << 4;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];   
+                
+        state.d = state.A;
+             
+      //5 - 0x1A
+      state.A:
+        testA = hFF +  io_dip[0];
+        testB = h0F + io_dip[1];
+        testalufn = h1A + io_dip[2];
+
+        bool.a = testA;
+        bool.b = testB;
+        bool.alufn = testalufn;
+        
+        if(bool.out == hFF)
+          status.d = status.q | 1b1 << 5;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];  
+        
+        state.d = state.SHL;
+                
+      //6 - 0x20
+      state.SHL:
+        testA = h0F + io_dip[0];
+        testB = h07 + io_dip[1];
+        testalufn = h20 + io_dip[2];
+
+        shift.a =  testA;
+        shift.b = testB;
+        shift.alufn = testalufn;
+        
+        if(shift.out == h80)
+          status.d = status.q | 1b1 << 6;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];  
+        
+        state.d = state.SHR;
+        
+      //7 - 0x21
+      state.SHR:
+        testA = hF0 + io_dip[0];
+        testB = h07 + io_dip[1];
+        testalufn = h21 + io_dip[2];
+
+        shift.a = testA;
+        shift.b = testB;
+        shift.alufn = testalufn;
+        
+        io_led[1] = shift.out;
+        if(shift.out == h01)
+          status.d = status.q | 1b1 << 7;
+        else
+          status.d = status.q;
+        
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];   
+        
+        state.d = state.SRA;
+      
+      //8- 0x23
+      state.SRA:
+        testA = hF0 + io_dip[0];
+        testB = h04 + io_dip[1];
+        testalufn = h23 + io_dip[2];
+
+        shift.a=  testA;
+        shift.b = testB;
+        shift.alufn = testalufn;
+        
+        if(shift.out == hFF)
+          status.d = status.q | 1b1 << 8;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];  
+        
+        state.d = state.CMPEQ;
+      
+      //9 - 0x33
+      state.CMPEQ:
+        testA = hFF + io_dip[0];
+        testB = hFF + io_dip[1];
+        testalufn = h33 + io_dip[2];
+        
+        zvn.a = testA;
+        zvn.b = testB;
+        zvn.alufn = testalufn;
+        zvn.addOut = add.out;
+        
+        cmp.z = zvn.z;
+        cmp.v = zvn.v;
+        cmp.n = zvn.n;
+        cmp.alufn = testalufn;
+        
+        if(cmp.out == h01)
+          status.d = status.q | 1b1 << 9;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;  
+        io_led[1] = status.q[status.WIDTH-1:8]; 
+        
+        state.d = state.CMPLT;
+        
+      //10 - 0x35
+      state.CMPLT:
+        testA = h0F + io_dip[0];
+        testB = h10 + io_dip[1];
+        testalufn = h35 + io_dip[2];
+        
+        zvn.a = testA;
+        zvn.b = testB;
+        zvn.alufn = testalufn;
+        zvn.addOut = add.out;
+        
+        cmp.z = zvn.z;
+        cmp.v = zvn.v;
+        cmp.n = zvn.n;
+        cmp.alufn = testalufn;
+        
+        if(cmp.out == h01)
+          status.d = status.q | 1b1 << 10;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8];  
+        
+        state.d = state.MUL;
+       
+       //11 - 0x02
+       state.MUL:
+        testA = h00 + io_dip[0];
+        testB = h00 + io_dip[1];
+        testalufn = h35 + io_dip[2];
+        
+        mul.a = testA;
+        mul.b = testB;
+        mul.alufn = testalufn;
+        
+        io_led[2] = mul.out;
+        
+         if(mul.out == h1E)
+          status.d = status.q | 1b1 << 11;
+        else
+          status.d = status.q;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8]; 
+        
+        state.d = state.DONE;
+        
+       state.DONE:
+        io_led[2][7] = 1b1;
+        status.d = status.q;
+        if((status.q != h3FF))
+          io_led[2][0] = 1b1;
+          
+        io_led[0] = status.q;
+        io_led[1] = status.q[status.WIDTH-1:8]; 
+      default:
+        state.d = state.ADD;
+        
+      }
+  }
+}
