@@ -6,11 +6,14 @@ module zvn (
     output z,
     output v,
     output n
+    
   ) {
+  
+  always {      
+    z = !(addOut);
 
-  always {
-    z = !(addOut[7:0]);
-    v = (a[7] && addOut[7] &&(b[7] ^ alufn[0])) || (!a[7] && addOut[7] && !(b[7] ^ alufn[0]));
+    v = (a[7] & !addOut[7] & (b[7] ^ alufn[0])) | (!a[7] & addOut[7] & !(b[7] ^ alufn[0]));
+    
     n = addOut[7];
+    }
   }
-}

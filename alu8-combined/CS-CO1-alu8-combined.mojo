@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project name="CS-CO1-auto-test" board="Mojo V3" language="Lucid">
+<project name="CS-CO1-alu8-combined" board="Mojo V3" language="Lucid">
   <files>
-    <src>multiply8.luc</src>
     <src>shift8.luc</src>
     <src>compare8.luc</src>
     <src>adder8.luc</src>

@@ -6,11 +6,17 @@ module adder8 (
   ) {
   
   always {
-    if(alufn[0]) {
-      out = a - b;
-    }
-    else {
-      out = a + b;
+    case(alufn[1:0]) {
+      2b00:
+        out = a + b;
+      2b01:
+        out = a - b;
+      2b10:
+        out = a * b;
+      2b11:
+        out = a - b;  //used by CMP module where alufn[1:0] is 01 or 11
+      default:
+        out = 0;
     }
   }
 }
