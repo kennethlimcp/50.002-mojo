@@ -2,6 +2,7 @@
 <project name="CS-CO1-alu8-combined" board="Mojo V3" language="Lucid">
   <files>
     <src>shift8.luc</src>
+    <src>alu8.luc</src>
     <src>compare8.luc</src>
     <src>adder8.luc</src>
     <src>boole8.luc</src>
