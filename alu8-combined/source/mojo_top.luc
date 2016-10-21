@@ -15,13 +15,13 @@ module mojo_top (
     input io_dip[3][8],
     input io_button[5],
     output io_led[3][8]
-    
+
   ) {
 
-  sig rst;   
-  
+  sig rst;
+
   alu8 alu;
-  
+
   .clk(clk) {
     // The reset conditioner is used to synchronize the reset signal to the FPGA
     // clock. This ensures the entire FPGA comes out of reset at the same time.
@@ -34,7 +34,7 @@ module mojo_top (
        fsm state (#INIT(ADD)) = {ADD, SUB, MUL, AND, OR, XOR, A, B, SHL, SHR, SRA, CMPEQ, CMPLT, CMPLE, DONE};
        dff status[14];
     }
-   }    
+   }
 
   always {
     reset_cond.in = ~rst_n; // input raw inverted reset signal
@@ -43,260 +43,259 @@ module mojo_top (
     spi_miso   = bz;
     spi_channel = bzzzz;
     avr_rx = bz;
-    
+
     slowclock.rst = rst;
     alu.a = h00;
     alu.b = h00;
     alu.alufn = h00;
-    
+
     io_led = 3x{{8h00}};
-    
-    
+
+
     status.d = 0;
-    
+
     case(state.q) {
     //0 - 0x00
     state.ADD:
       alu.a = h01 + io_dip[0];
       alu.b = h02 + io_dip[1];
       alu.alufn = h000;
-      
+
       if(alu.out == h03)
         status.d = status.q | 1b1 << 0;
       else
         status.d = status.q;
-        
+
       io_led[0] = status.q;
       io_led[1] = status.q[status.WIDTH-1:8];
-    
+
       state.d = state.SUB;
-      
+
     //1 - 0x01
     state.SUB:
       alu.a = h0F + io_dip[0];
       alu.b = h03 + io_dip[1];
       alu.alufn = h01;
-      
+
       if(alu.out == h0C)
         status.d = status.q | 1b1 << 1;
       else
         status.d = status.q;
-                  
+
       io_led[0] = status.q;
       io_led[1] = status.q[status.WIDTH-1:8];
-    
+
       state.d = state.MUL;
-       
+
      //2 - 0x02
      state.MUL:
       alu.a = h0F + io_dip[0];
       alu.b = h02 + io_dip[1];
       alu.alufn = h02;
-      
+
       if(alu.out == h1E)
         status.d = status.q | 1b1 << 2;
       else
         status.d = status.q;
-                  
+
       io_led[0] = status.q;
       io_led[1] = status.q[status.WIDTH-1:8];
-    
+
       state.d = state.AND;
-       
+
      //3 - 0x18
      state.AND:
       alu.a = h0F + io_dip[0];
       alu.b = h0F + io_dip[1];
       alu.alufn = h18;
-      
+
       if(alu.out == h0F)
         status.d = status.q | 1b1 << 3;
       else
         status.d = status.q;
-                  
+
       io_led[0] = status.q;
       io_led[1] = status.q[status.WIDTH-1:8];
-    
-      state.d = state.OR;      
-        
+
+      state.d = state.OR;
+
       //4 - 0x1E
       state.OR:
         alu.a = h0F + io_dip[0];
         alu.b = hF0 + io_dip[1];
         alu.alufn = h1E;
-        
+
         if(alu.out == hFF)
           status.d = status.q | 1b1 << 4;
         else
           status.d = status.q;
-                    
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
+
         state.d = state.XOR;
-        
+
       //5 - 0x16
       state.XOR:
         alu.a = h0F + io_dip[0];
         alu.b = hFF + io_dip[1];
         alu.alufn = h16;
-        
+
         if(alu.out == hF0)
           status.d = status.q | 1b1 << 5;
         else
           status.d = status.q;
-                    
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
-        state.d = state.A;      
+
+        state.d = state.A;
 
       //6 - 0x1A
       state.A:
-        alu.a = hFF + io_dip[0];
-        alu.b = hFF + io_dip[1];
+        alu.a = hF0 + io_dip[0];
+        alu.b = h0F + io_dip[1];
         alu.alufn = h1A;
-        
+
         if(alu.out == hFF)
           status.d = status.q | 1b1 << 6;
         else
           status.d = status.q;
-                    
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
-        state.d = state.B;    
-  
+
+        state.d = state.B;
+
       //7 - 0x1C
       state.B:
-        alu.a = hFF + io_dip[0];
-        alu.b = hFF + io_dip[1];
+        alu.a = hF0 + io_dip[0];
+        alu.b = h0F + io_dip[1];
         alu.alufn = h1C;
-        
+
         if(alu.out == hFF)
           status.d = status.q | 1b1 << 7;
         else
           status.d = status.q;
-                    
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
+
         state.d = state.SHL;
-        
+
       //8 - 0x20
       state.SHL:
         alu.a = h0F + io_dip[0];
         alu.b = h07 + io_dip[1];
         alu.alufn = h20;
-        
+
         if(alu.out == h80)
           status.d = status.q | 1b1 << 8;
         else
           status.d = status.q;
-                    
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
+
         state.d = state.SHR;
-        
+
       //9 - 0x21
       state.SHR:
         alu.a = hF0 + io_dip[0];
         alu.b = h01 + io_dip[1];
         alu.alufn = h21;
-        
+
         if(alu.out == h78)
           status.d = status.q | 1b1 << 9;
         else
           status.d = status.q;
-                    
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
+
         state.d = state.SRA;
-      
+
       //10 - 0x23
       state.SRA:
         alu.a = hF0 + io_dip[0];
         alu.b = h04 + io_dip[1];
         alu.alufn = h23;
-        
+
         if(alu.out == hFF)
           status.d = status.q | 1b1 << 10;
         else
           status.d = status.q;
-                    
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
+
         state.d = state.CMPEQ;
-      
+
       //11 - 0x33
       state.CMPEQ:
         alu.a = h0F + io_dip[0];
         alu.b = h0F + io_dip[1];
         alu.alufn = h33;
-                
+
         if(alu.out == h01)
           status.d = status.q | 1b1 << 11;
         else
           status.d = status.q;
-          
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
+
         state.d = state.CMPLT;
-      
+
       //12 - 0x35
       state.CMPLT:
         alu.a = hF0 + io_dip[0];
         alu.b = hFF + io_dip[1];
         alu.alufn = h35;
-        
-        
+
+
         if(alu.out == h01)
           status.d = status.q | 1b1 << 12;
         else
           status.d = status.q;
-        
-                    
+
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
 
         state.d = state.CMPLE;
-        
+
       //13 - 0x37
       state.CMPLE:
         alu.a = h0F + io_dip[0];
         alu.b = h7F + io_dip[1];
         alu.alufn = h37;
-        
+
         if(alu.out == h01)
           status.d = status.q | 1b1 << 13;
         else
           status.d = status.q;
-                    
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-      
+
         state.d = state.DONE;
-      
-                                                
+
+
       //fsm state = {ADD, SUB, MUL, AND, OR, XOR, A, B, SHL, SHR, SRA, CMPEQ, CMPLT, CMPLE, DONE};
       state.DONE:
         io_led[2][7] = 1b1;
         status.d = status.q;
-        
+
         if(status.q != h3fff)
           io_led[2][0] = 1b1;
-                
+
         io_led[0] = status.q;
         io_led[1] = status.q[status.WIDTH-1:8];
-        
+
        // state.d = state.DONE;
       default:
         state.d = state.ADD;
     }
   }
 }
-   
