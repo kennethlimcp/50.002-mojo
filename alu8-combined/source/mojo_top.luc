@@ -173,7 +173,7 @@ module mojo_top (
         alu.b = h0F + io_dip[1];
         alu.alufn = h1C;
 
-        if(alu.out == hFF)
+        if(alu.out == h0F)
           status.d = status.q | 1b1 << 7;
         else
           status.d = status.q;
