@@ -1,0 +1,113 @@
+module mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,       // AVR RX buffer full
+    input io_button[5],
+    output a[8],
+    output c[8]
+ //   output io_led[3][8]
+  ) {
+
+  sig rst;                  // reset signal
+
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    .rst(rst){
+       counter slowclock(#SIZE(1),#DIV(10));  //smaller the faster the refresh
+
+    }
+  }
+  .clk(slowclock.value) {
+    fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
+    dff cSignal[8](.rst(rst));
+    dff aSignal[8](.rst(rst));
+   }
+
+  always {
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+
+    led = 8h00;             // turn LEDs off
+    spi_miso = bz;          // not using SPI
+    spi_channel = bzzzz;    // not using flags
+    avr_rx = bz;            // not using serial port
+
+//    io_led[2] = 8hFF;
+     a = 8h00;
+     c = 8hFF;
+
+    state.d=state.q;
+
+    case(state.q){
+      state.ONE:
+
+        a = h00;
+        c = hFF;
+
+        aSignal.d = h00;
+        cSignal.d = hFF;
+
+        state.d = state.TWO;
+
+      //switch cathode selection
+      state.TWO:
+        
+        case(cSignal.q) {
+          hFF:
+            cSignal.d = hFE;
+          hFE:
+            cSignal.d = hFD;
+          hFD:
+            cSignal.d = hFB;
+          hFB:
+            cSignal.d = hF7;
+          hF7:
+            cSignal.d = hEF;
+          hEF:
+            cSignal.d = hDF;
+          hDF:
+            cSignal.d = hBF;
+          hBF:
+            cSignal.d = h7F;
+          h7F:
+            cSignal.d = hFE;
+        }
+        
+        a = aSignal.q;
+        c = cSignal.q;
+        
+        led = 8h00;
+        state.d=state.THREE;
+
+      //switch anode selection
+      state.THREE:
+        
+         case(aSignal.q) {
+          h00:
+            aSignal.d = h01;
+            state.d=state.THREE;
+          h01:
+            aSignal.d = h02;
+            state.d=state.THREE;
+          h02:
+            aSignal.d = h01;
+            state.d=state.TWO;
+        }
+        
+        a = aSignal.q;
+        c = cSignal.q;
+        led = 8hFF;
+    }
+  }
+}
