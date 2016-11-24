@@ -1,55 +1,34 @@
-module mojo_top (
-  input clk,              // 50MHz clock
-  input rst_n,            // reset button (active low)
-  output led [8],         // 8 user controllable LEDs
-  input cclk,             // configuration clock, AVR ready when high
-  output spi_miso,        // AVR SPI MISO
-  input spi_ss,           // AVR SPI Slave Select
-  input spi_mosi,         // AVR SPI MOSI
-  input spi_sck,          // AVR SPI Clock
-  output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
-  input avr_tx,           // AVR TX (FPGA RX)
-  output avr_rx,          // AVR RX (FPGA TX)
-  input avr_rx_busy,      // AVR RX buffer full
-  input io_button[5],
-  output a[16],
-  output c[16]
+module led_test (
+    input clk,  // clock
+    input rst,  // reset
+    output a[16],
+    output c[16]
   ) {
 
-    sig rst;               // reset signal
+  //sig rst;                  // reset signal
 
-    .clk(clk) {
-      // The reset conditioner is used to synchronize the reset signal to the FPGA
-      // clock. This ensures the entire FPGA comes out of reset at the same time.
-      reset_conditioner reset_cond;
-      .rst(rst){
-        counter slowclock(#SIZE(1),#DIV(10));  //smaller the faster the refresh
-      }
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+   .rst(rst){
+       counter slowclock(#SIZE(1),#DIV(10));  //smaller the faster the refresh
     }
+  }
+  
+  .clk(slowclock.value) {
+    fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
+    dff cSignal[16](.rst(rst));
+    dff aSignal[16](.rst(rst));
+   }
 
-    .clk(slowclock.value) {
-      fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
-      dff cSignal[16](.rst(rst));
-      dff aSignal[16](.rst(rst));
-    }
+  always {
+     a = h0000;
+     c = hFFFF;
+        
+    state.d=state.q;
 
-
-    always {
-      reset_cond.in = ~rst_n; // input raw inverted reset signal
-      rst = reset_cond.out;   // conditioned reset
-
-      led = 8h00;             // turn LEDs off
-      spi_miso = bz;          // not using SPI
-      spi_channel = bzzzz;    // not using flags
-      avr_rx = bz;            // not using serial port
-
-      a = h0000;
-      c = hFFFF;
-
-      state.d=state.q;
-
-      case(state.q){
-        state.ONE:
+    case(state.q){
+      state.ONE:
 
         a = h0000;
         c = h00FF;
@@ -59,8 +38,8 @@ module mojo_top (
 
         state.d = state.TWO;
 
-        //switch cathode selection
-        state.TWO:
+      //switch cathode selection
+      state.TWO:
 
         if(cSignal.q == hFFFF) {
           cSignal.d = hFFFE;
@@ -97,8 +76,8 @@ module mojo_top (
         c = cSignal.q;
         state.d=state.THREE;
 
-        //switch anode selection
-        state.THREE:
+      //switch anode selection
+      state.THREE:
 
         if(aSignal.q == h0000) {
           aSignal.d = h0001;
@@ -110,7 +89,7 @@ module mojo_top (
         }
         else {
           aSignal.d = (aSignal.q << 1);
-          state.d = state.THREE;
+            state.d = state.THREE;
         }
         //  case(aSignal.q) {
         //   h00:
@@ -144,6 +123,6 @@ module mojo_top (
 
         a = aSignal.q;
         c = cSignal.q;
-      }
     }
   }
+}
