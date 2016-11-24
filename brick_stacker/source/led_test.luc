@@ -5,16 +5,11 @@ module led_test (
   output c[16]
   ) {
 
-    //sig rst;                  // reset signal
-
     .clk(clk) {
       // The reset conditioner is used to synchronize the reset signal to the FPGA
       // clock. This ensures the entire FPGA comes out of reset at the same time.
       .rst(rst){
         counter slowclock(#SIZE(1),#DIV(10));  //smaller the faster the refresh
-        // fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
-        // dff cSignal[16](.rst(rst));
-        // dff aSignal[16](.rst(rst));
       }
     }
 
@@ -54,27 +49,6 @@ module led_test (
           cSignal.d = (cSignal.q << 1) + 1;
         }
 
-        // case(cSignal.q) {
-        //   hFF:
-        //     cSignal.d = hFE;
-        //   hFE:
-        //     cSignal.d = hFD;
-        //   hFD:
-        //     cSignal.d = hFB;
-        //   hFB:
-        //     cSignal.d = hF7;
-        //   hF7:
-        //     cSignal.d = hEF;
-        //   hEF:
-        //     cSignal.d = hDF;
-        //   hDF:
-        //     cSignal.d = hBF;
-        //   hBF:
-        //     cSignal.d = h7F;
-        //   h7F:
-        //     cSignal.d = hFE;
-        // }
-
         a = aSignal.q;
         c = cSignal.q;
         state.d=state.THREE;
@@ -94,35 +68,6 @@ module led_test (
           aSignal.d = (aSignal.q << 1);
           state.d = state.THREE;
         }
-        //  case(aSignal.q) {
-        //   h00:
-        //     aSignal.d = h01;
-        //     state.d=state.THREE;
-        //   h01:
-        //     aSignal.d = h02;
-        //     state.d=state.THREE;
-        //   h02:
-        //     aSignal.d = h04;
-        //     state.d=state.THREE;
-        //   h04:
-        //     aSignal.d = h08;
-        //     state.d=state.THREE;
-        //   h08:
-        //     aSignal.d = h10;
-        //     state.d=state.THREE;
-        //   h10:
-        //     aSignal.d = h20;
-        //     state.d=state.THREE;
-        //   h20:
-        //     aSignal.d = h40;
-        //     state.d=state.THREE;
-        //   h40:
-        //     aSignal.d = h80;
-        //     state.d=state.THREE;
-        //   h80:
-        //     aSignal.d = h01;
-        //     state.d=state.TWO;
-        // }
 
         a = aSignal.q;
         c = cSignal.q;
