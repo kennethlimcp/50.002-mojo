@@ -1,34 +1,37 @@
 module led_test (
-    input clk,  // clock
-    input rst,  // reset
-    output a[16],
-    output c[16]
+  input clk,  // clock
+  input rst,  // reset
+  output a[16],
+  output c[16]
   ) {
 
-  //sig rst;                  // reset signal
+    //sig rst;                  // reset signal
 
-  .clk(clk) {
-    // The reset conditioner is used to synchronize the reset signal to the FPGA
-    // clock. This ensures the entire FPGA comes out of reset at the same time.
-   .rst(rst){
-       counter slowclock(#SIZE(1),#DIV(10));  //smaller the faster the refresh
+    .clk(clk) {
+      // The reset conditioner is used to synchronize the reset signal to the FPGA
+      // clock. This ensures the entire FPGA comes out of reset at the same time.
+      .rst(rst){
+        counter slowclock(#SIZE(1),#DIV(10));  //smaller the faster the refresh
+        // fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
+        // dff cSignal[16](.rst(rst));
+        // dff aSignal[16](.rst(rst));
+      }
     }
-  }
-  
-  .clk(slowclock.value) {
-    fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
-    dff cSignal[16](.rst(rst));
-    dff aSignal[16](.rst(rst));
-   }
 
-  always {
-     a = h0000;
-     c = hFFFF;
-        
-    state.d=state.q;
+    .clk(slowclock.value) {
+     fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
+     dff cSignal[16](.rst(rst));
+     dff aSignal[16](.rst(rst));
+    }
 
-    case(state.q){
-      state.ONE:
+    always {
+      a = h0000;
+      c = hFFFF;
+
+      state.d=state.q;
+
+      case(state.q){
+        state.ONE:
 
         a = h0000;
         c = h00FF;
@@ -38,8 +41,8 @@ module led_test (
 
         state.d = state.TWO;
 
-      //switch cathode selection
-      state.TWO:
+        //switch cathode selection
+        state.TWO:
 
         if(cSignal.q == hFFFF) {
           cSignal.d = hFFFE;
@@ -76,8 +79,8 @@ module led_test (
         c = cSignal.q;
         state.d=state.THREE;
 
-      //switch anode selection
-      state.THREE:
+        //switch anode selection
+        state.THREE:
 
         if(aSignal.q == h0000) {
           aSignal.d = h0001;
@@ -89,7 +92,7 @@ module led_test (
         }
         else {
           aSignal.d = (aSignal.q << 1);
-            state.d = state.THREE;
+          state.d = state.THREE;
         }
         //  case(aSignal.q) {
         //   h00:
@@ -123,6 +126,6 @@ module led_test (
 
         a = aSignal.q;
         c = cSignal.q;
+      }
     }
   }
-}
