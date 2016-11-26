@@ -17,128 +17,58 @@ module mojo_top (
   ) {
 
     sig rst;              // reset signal
-
+    sig led_pattern[16][16];  //sig to store led patterns for all 16 rows
+    var i;
+    
     .clk(clk) {
       // The reset conditioner is used to synchronize the reset signal to the FPGA
       // clock. This ensures the entire FPGA comes out of reset at the same time.
       reset_conditioner reset_cond;
       .rst(rst){
-        led_test ledM;
+        led_test ledMtest;
+        led_matrix ledM;
       }
     }
+
+     always {
+      // led_pattern[0] = h0380;
+      // led_pattern[1] = h0380;
+      // led_pattern[2] = h0380;
+      // led_pattern[3] = h0000;
+      // led_pattern[4] = h0000;
+      // led_pattern[5] = h0000;
+      // led_pattern[6] = h0000;
+      // led_pattern[7] = h0000;
+      // led_pattern[8] = h0000;
+      // led_pattern[9] = h0000;
+      // led_pattern[10] = h0000;
+      // led_pattern[11] = h0000;
+      // led_pattern[12] = h0000;
+      // led_pattern[13] = h0000;
+      // led_pattern[14] = h0000;
+      // led_pattern[15] = h0000;
+
+      //initializing the led pattern to draw a 3x3 cube at the bottom
+      for (i = 0; i < led_pattern.WIDTH[0]; i++) {
+
+        if(i == 0 || i == 1 || i == 2)
+          led_pattern[i] = h0380;
+        else
+          led_pattern[i] = h0000;
+      }
+       ledM.pattern = led_pattern;
+     }
 
     always {
       reset_cond.in = ~rst_n; // input raw inverted reset signal
       rst = reset_cond.out;   // conditioned reset
 
-      led = 8h00;             // turn LEDs off
+      led = h00;              // turn LEDs off
       spi_miso = bz;          // not using SPI
       spi_channel = bzzzz;    // not using flags
       avr_rx = bz;            // not using serial port
 
-      a = ledM.a;
-      c = ledM.c;
-      // a = h0000;
-      // c = hFFFF;
-      //
-      // state.d=state.q;
-      //
-      // case(state.q){
-      //   state.ONE:
-      //
-      //   a = h0000;
-      //   c = h00FF;
-      //
-      //   aSignal.d = h0000;
-      //   cSignal.d = hFFFF;
-      //
-      //   state.d = state.TWO;
-      //
-      //   //switch cathode selection
-      //   state.TWO:
-      //
-      //   if(cSignal.q == hFFFF) {
-      //     cSignal.d = hFFFE;
-      //   }
-      //   else if(cSignal.q == h7FFF) {
-      //     cSignal.d = hFFFE;
-      //   }
-      //   else {
-      //     cSignal.d = (cSignal.q << 1) + 1;
-      //   }
-      //
-      //   // case(cSignal.q) {
-      //   //   hFF:
-      //   //     cSignal.d = hFE;
-      //   //   hFE:
-      //   //     cSignal.d = hFD;
-      //   //   hFD:
-      //   //     cSignal.d = hFB;
-      //   //   hFB:
-      //   //     cSignal.d = hF7;
-      //   //   hF7:
-      //   //     cSignal.d = hEF;
-      //   //   hEF:
-      //   //     cSignal.d = hDF;
-      //   //   hDF:
-      //   //     cSignal.d = hBF;
-      //   //   hBF:
-      //   //     cSignal.d = h7F;
-      //   //   h7F:
-      //   //     cSignal.d = hFE;
-      //   // }
-      //
-      //   a = aSignal.q;
-      //   c = cSignal.q;
-      //   state.d=state.THREE;
-      //
-      //   //switch anode selection
-      //   state.THREE:
-      //
-      //   if(aSignal.q == h0000) {
-      //     aSignal.d = h0001;
-      //     state.d = state.THREE;
-      //   }
-      //   else if(aSignal.q == h8000) {
-      //     aSignal.d = h0001;
-      //     state.d = state.TWO;
-      //   }
-      //   else {
-      //     aSignal.d = (aSignal.q << 1);
-      //     state.d = state.THREE;
-      //   }
-      //   //  case(aSignal.q) {
-      //   //   h00:
-      //   //     aSignal.d = h01;
-      //   //     state.d=state.THREE;
-      //   //   h01:
-      //   //     aSignal.d = h02;
-      //   //     state.d=state.THREE;
-      //   //   h02:
-      //   //     aSignal.d = h04;
-      //   //     state.d=state.THREE;
-      //   //   h04:
-      //   //     aSignal.d = h08;
-      //   //     state.d=state.THREE;
-      //   //   h08:
-      //   //     aSignal.d = h10;
-      //   //     state.d=state.THREE;
-      //   //   h10:
-      //   //     aSignal.d = h20;
-      //   //     state.d=state.THREE;
-      //   //   h20:
-      //   //     aSignal.d = h40;
-      //   //     state.d=state.THREE;
-      //   //   h40:
-      //   //     aSignal.d = h80;
-      //   //     state.d=state.THREE;
-      //   //   h80:
-      //   //     aSignal.d = h01;
-      //   //     state.d=state.TWO;
-      //   // }
-      //
-      //   a = aSignal.q;
-      //   c = cSignal.q;
-      // }
-    }
+      a = ledM.a;             //set anode pins to output from ledM module
+      c = ledM.c;             //set cathode pins to output from ledM module
+     }
   }
