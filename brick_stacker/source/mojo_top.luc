@@ -28,41 +28,41 @@ module mojo_top (
         led_test ledMtest;
         led_matrix ledM;
         counter clocky(#SIZE(1),#DIV(16));  //smaller the faster the refresh
-        dff brick_pos[8];
-        fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
+        dff brick_pos[16](#INIT(h0007));
+        fsm bricky (#INIT(ONE)) = {ONE,TWO, THREE};
       }
     }
 
     //this is not in use but left here for easy access when needed
     .clk(clocky.value) {
       .rst(rst){
-        counter posClock(#SIZE(1),#DIV(6));  //smaller the faster the refresh
+        counter posClock(#SIZE(1),#DIV(7));  //smaller the faster the refresh
 
       }
     }
-     always {
-      //initializing the led pattern to draw a 3x3 cube at the bottom
-      for (i = 0; i < led_pattern.WIDTH[0]; i++) {
-
-        if(i == 0 || i == 1 || i == 2)
-          led_pattern[i] = h0380;
-        else
-          led_pattern[i] = h0000;
-      }
-
-      case(posClock.value) {
-        0:
-          led_pattern[0] = h0380;
-          led_pattern[1] = h0380;
-          led_pattern[2] = h0380;
-        1:
-          led_pattern[0] = h0007;
-          led_pattern[1] = h0007;
-          led_pattern[2] = h0007;
-      }
-
-      ledM.pattern = led_pattern;
-     }
+    //  always {
+    //   //initializing the led pattern to draw a 3x3 cube at the bottom
+    //   for (i = 0; i < led_pattern.WIDTH[0]; i++) {
+     //
+    //     if(i == 0 || i == 1 || i == 2)
+    //       led_pattern[i] = h0380;
+    //     else
+    //       led_pattern[i] = h0000;
+    //   }
+     //
+    //   case(posClock.value) {
+    //     0:
+    //       led_pattern[0] = h0380;
+    //       led_pattern[1] = h0380;
+    //       led_pattern[2] = h0380;
+    //     1:
+    //       led_pattern[0] = h0007;
+    //       led_pattern[1] = h0007;
+    //       led_pattern[2] = h0007;
+    //   }
+     //
+    //   ledM.pattern = led_pattern;
+    //  }
 
     always {
       reset_cond.in = ~rst_n; // input raw inverted reset signal
@@ -76,19 +76,49 @@ module mojo_top (
       a = ledM.a;             //set anode pins to output from ledM module
       c = ledM.c;             //set cathode pins to output from ledM module
 
-      brick_pos.d = h01;
+      //initializing the led pattern to draw a 3x3 cube at the bottom
 
-      // case(bricky.q) {
-      //
-      // }
-      case(brick_pos.q) {
-        h01:
-          brick_pos.d = brick_pos.q << 1;
-        h02:
-          brick_pos.d = h01;
+      case(bricky.q) {
+        bricky.ONE:
+          if(posClock.value == 1) {
+            brick_pos.d = brick_pos.q;
+            bricky.d = bricky.TWO;
+          }
+          else {
+            brick_pos.d = brick_pos.q;
+            bricky.d = bricky.ONE;
+          }
+        bricky.TWO:
+          if(brick_pos.q != hE000) {
+            brick_pos.d = brick_pos.q << 1;
+          }
+          else {
+            brick_pos.d = h0007;
+          }
+          bricky.d = bricky.THREE;
+        bricky.THREE:
+          if(posClock.value == 1) {
+            bricky.d = bricky.THREE;
+          }
+          else {
+            bricky.d = bricky.ONE;
+          }
 
       }
-      led = brick_pos.q;
 
+
+      led_pattern[0] = brick_pos.q;
+      led_pattern[1] = brick_pos.q;
+      led_pattern[2] = brick_pos.q;
+      for (i = 3; i < led_pattern.WIDTH[0]; i++) {
+
+        if(i == 0 || i == 1 || i == 2)
+          led_pattern[i] = h0380;
+        else
+          led_pattern[i] = h0000;
+      }
+
+      led = brick_pos.q;
+      ledM.pattern = led_pattern;
      }
   }
