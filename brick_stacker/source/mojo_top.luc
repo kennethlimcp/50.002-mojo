@@ -29,14 +29,15 @@ module mojo_top (
         led_matrix ledM;
         counter clocky(#SIZE(1),#DIV(16));  //smaller the faster the refresh
         dff brick_pos[16](#INIT(h0007));
-        fsm bricky (#INIT(ONE)) = {ONE,TWO, THREE};
+        dff direction[1](#INIT(0));
+        fsm bricky (#INIT(ONE)) = {ONE,TWO, THREE, FOUR};
       }
     }
 
     //this is not in use but left here for easy access when needed
     .clk(clocky.value) {
       .rst(rst){
-        counter posClock(#SIZE(1),#DIV(7));  //smaller the faster the refresh
+        counter posClock(#SIZE(1),#DIV(4));  //smaller the faster the refresh
 
       }
     }
@@ -76,8 +77,6 @@ module mojo_top (
       a = ledM.a;             //set anode pins to output from ledM module
       c = ledM.c;             //set cathode pins to output from ledM module
 
-      //initializing the led pattern to draw a 3x3 cube at the bottom
-
       case(bricky.q) {
         bricky.ONE:
           if(posClock.value == 1) {
@@ -88,13 +87,31 @@ module mojo_top (
             brick_pos.d = brick_pos.q;
             bricky.d = bricky.ONE;
           }
+
+          direction.d = direction.q;
+
         bricky.TWO:
-          if(brick_pos.q != hE000) {
-            brick_pos.d = brick_pos.q << 1;
+          case(direction.q) {
+            0:
+              if(brick_pos.q != hE000) {
+                brick_pos.d = brick_pos.q << 1;
+                direction.d = direction.q;
+              }
+              else {
+                brick_pos.d = brick_pos.q;
+                direction.d = 1;
+              }
+            1:
+              if(brick_pos.q != h0007) {
+                brick_pos.d = brick_pos.q >> 1;
+                direction.d = direction.q;
+              }
+              else {
+                brick_pos.d = brick_pos.q;
+                direction.d = 0;
+              }
           }
-          else {
-            brick_pos.d = h0007;
-          }
+
           bricky.d = bricky.THREE;
         bricky.THREE:
           if(posClock.value == 1) {
@@ -103,7 +120,7 @@ module mojo_top (
           else {
             bricky.d = bricky.ONE;
           }
-
+          direction.d = direction.q;
       }
 
 
@@ -118,7 +135,7 @@ module mojo_top (
           led_pattern[i] = h0000;
       }
 
-      led = brick_pos.q;
+      led = direction.q;
       ledM.pattern = led_pattern;
      }
   }
