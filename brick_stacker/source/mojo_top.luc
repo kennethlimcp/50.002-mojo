@@ -27,9 +27,19 @@ module mojo_top (
       .rst(rst){
         led_test ledMtest;
         led_matrix ledM;
+        counter clocky(#SIZE(1),#DIV(16));  //smaller the faster the refresh
+        dff brick_pos[8];
+        fsm state (#INIT(ONE)) = {ONE,TWO, THREE};
       }
     }
 
+    //this is not in use but left here for easy access when needed
+    .clk(clocky.value) {
+      .rst(rst){
+        counter posClock(#SIZE(1),#DIV(6));  //smaller the faster the refresh
+
+      }
+    }
      always {
       //initializing the led pattern to draw a 3x3 cube at the bottom
       for (i = 0; i < led_pattern.WIDTH[0]; i++) {
@@ -39,19 +49,46 @@ module mojo_top (
         else
           led_pattern[i] = h0000;
       }
-       ledM.pattern = led_pattern;
+
+      case(posClock.value) {
+        0:
+          led_pattern[0] = h0380;
+          led_pattern[1] = h0380;
+          led_pattern[2] = h0380;
+        1:
+          led_pattern[0] = h0007;
+          led_pattern[1] = h0007;
+          led_pattern[2] = h0007;
+      }
+
+      ledM.pattern = led_pattern;
      }
 
     always {
       reset_cond.in = ~rst_n; // input raw inverted reset signal
       rst = reset_cond.out;   // conditioned reset
 
-      led = h00;              // turn LEDs off
+      //led = h00;              // turn LEDs off
       spi_miso = bz;          // not using SPI
       spi_channel = bzzzz;    // not using flags
       avr_rx = bz;            // not using serial port
 
       a = ledM.a;             //set anode pins to output from ledM module
       c = ledM.c;             //set cathode pins to output from ledM module
+
+      brick_pos.d = h01;
+
+      // case(bricky.q) {
+      //
+      // }
+      case(brick_pos.q) {
+        h01:
+          brick_pos.d = brick_pos.q << 1;
+        h02:
+          brick_pos.d = h01;
+
+      }
+      led = brick_pos.q;
+
      }
   }
