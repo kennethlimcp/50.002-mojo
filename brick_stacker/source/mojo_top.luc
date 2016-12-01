@@ -21,13 +21,13 @@ module mojo_top (
     sig led_pattern[16][16];  //sig to store led patterns for all 16 rows
     var i;
 
-
     .clk(clk) {
       // The reset conditioner is used to synchronize the reset signal to the FPGA
       // clock. This ensures the entire FPGA comes out of reset at the same time.
       reset_conditioner reset_cond;
       button_conditioner butt;
       edge_detector butt_edge(#RISE(0),#FALL(1));
+      simple_ram led_ram(#SIZE(16),#DEPTH(16));
 
       .rst(rst){
         led_test ledMtest;
@@ -37,7 +37,8 @@ module mojo_top (
         dff direction[1](#INIT(0));         //sets direction to shift
         dff brick_level[4](#INIT(0));       //tells you which level is the brick moving on
         dff previous_state[2](#INIT(0));     //remembers the previous_state for button irq
-        fsm bricky (#INIT(ONE)) = {ONE,TWO, THREE, FOUR};
+        dff j[4](#INIT(0));
+        fsm bricky (#INIT(INIT)) = {INIT, ONE, TWO, THREE, FOUR};
 
         dff edge_detected[1](#INIT(0));
       }
@@ -80,15 +81,38 @@ module mojo_top (
       butt.in = button;
       butt_edge.in = butt.out;
 
-      led = h00;
+      led_ram.address = 0; // use brick_level as the address
+      led_ram.write_data = h0000;      // don't care
+      led_ram.write_en = 0;            // read by default
+
+      led = led_ram.read_data;
       spi_miso = bz;          // not using SPI
       spi_channel = bzzzz;    // not using flags
       avr_rx = bz;            // not using serial port
 
       a = ledM.a;             //set anode pins to output from ledM module
       c = ledM.c;             //set cathode pins to output from ledM module
+      j.d = h0;
+
+      for (i = 0; i < led_pattern.WIDTH[0]; i++) {
+        led_pattern[i] = h0000;
+      }
 
       case(bricky.q) {
+        bricky.INIT:
+          if(j.q != 15) {
+            led_ram.address = j.q;
+            led_ram.write_data = h0007;
+            led_ram.write_en = 1;
+            j.d = j.q + 1;
+            bricky.d = bricky.INIT;
+          }
+          else {
+            led_ram.write_en = 0;
+            led_ram.address = 0;
+            bricky.d = bricky.ONE;
+          }
+
         bricky.ONE:
         if(posClock.value == 1) {
           brick_pos.d = brick_pos.q;
@@ -165,19 +189,19 @@ module mojo_top (
         }
 
 
-      for (i = 0; i < led_pattern.WIDTH[0]; i++) {
-
-        //        if(i == 0 || i == 1 || i == 2)
-        //          led_pattern[i] = h0380;
-        //        else
-        led_pattern[i] = h0000;
-      }
 
       led_pattern[brick_level.q] = brick_pos.q;
       led_pattern[brick_level.q+1] = brick_pos.q;
       led_pattern[brick_level.q+2] = brick_pos.q;
 
       //led = direction.q;
-      ledM.pattern = led_pattern;
+      ledM.pattern[0] = led_ram.read_data;
+      ledM.pattern[15:1] = led_pattern[15:1];
+
+      // for (i = 0; i < 16; i++) {
+      //   led_ram.address = i;
+      //   ledM.pattern[i] = h0007;
+      // }
+
     }
   }

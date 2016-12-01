@@ -3,10 +3,11 @@
   <files>
     <src>led_Matrix.luc</src>
     <src>button_debounce.luc</src>
-    <src>led_test.luc</src>
     <src top="true">mojo_top.luc</src>
+    <src>led_test.luc</src>
     <ucf>ledmatrix.ucf</ucf>
     <ucf lib="true">mojo.ucf</ucf>
+    <component>simple_ram.v</component>
     <component>reset_conditioner.luc</component>
     <component>pipeline.luc</component>
     <component>counter.luc</component>
