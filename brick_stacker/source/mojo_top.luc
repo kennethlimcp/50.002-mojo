@@ -13,17 +13,21 @@ module mojo_top (
   input avr_rx_busy,      // AVR RX buffer full
   input io_button[5],
   output a[16],
-  output c[16]
+  output c[16],
+  input button
   ) {
 
     sig rst;              // reset signal
     sig led_pattern[16][16];  //sig to store led patterns for all 16 rows
     var i;
 
+
     .clk(clk) {
       // The reset conditioner is used to synchronize the reset signal to the FPGA
       // clock. This ensures the entire FPGA comes out of reset at the same time.
       reset_conditioner reset_cond;
+      button_conditioner butt;
+
       .rst(rst){
         led_test ledMtest;
         led_matrix ledM;
@@ -32,6 +36,7 @@ module mojo_top (
         dff direction[1](#INIT(0));         //sets direction to shift
         dff brick_level[4](#INIT(0));
         fsm bricky (#INIT(ONE)) = {ONE,TWO, THREE, FOUR};
+
       }
     }
 
@@ -69,6 +74,10 @@ module mojo_top (
       reset_cond.in = ~rst_n; // input raw inverted reset signal
       rst = reset_cond.out;   // conditioned reset
 
+      butt.in = button;
+
+
+      led = 8x{butt.out};
       //led = h00;              // turn LEDs off
       spi_miso = bz;          // not using SPI
       spi_channel = bzzzz;    // not using flags
@@ -145,7 +154,7 @@ module mojo_top (
       led_pattern[brick_level.q+1] = brick_pos.q;
       led_pattern[brick_level.q+2] = brick_pos.q;
 
-      led = direction.q;
+      //led = direction.q;
       ledM.pattern = led_pattern;
      }
   }
