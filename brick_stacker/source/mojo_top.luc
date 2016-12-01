@@ -35,7 +35,8 @@ module mojo_top (
         counter clocky(#SIZE(1),#DIV(16));  //must be the same as led_Matrix DIV
         dff brick_pos[16](#INIT(h0007));    //tracks position of brick
         dff direction[1](#INIT(0));         //sets direction to shift
-        dff brick_level[4](#INIT(0));
+        dff brick_level[4](#INIT(0));       //tells you which level is the brick moving on
+        dff previous_state[2](#INIT(0));     //remembers the previous_state for button irq
         fsm bricky (#INIT(ONE)) = {ONE,TWO, THREE, FOUR};
 
         dff edge_detected[1](#INIT(0));
@@ -98,8 +99,14 @@ module mojo_top (
           bricky.d = bricky.ONE;
         }
 
+        if(butt_edge.out) {
+          bricky.d = bricky.FOUR;
+        }
+
         direction.d = direction.q;
         brick_level.d = brick_level.q;
+        previous_state.d = bricky.q;
+
         bricky.TWO:
         case(direction.q) {
           0:
@@ -122,8 +129,12 @@ module mojo_top (
           }
         }
 
+        if(butt_edge.out) {
+          bricky.d = bricky.FOUR;
+        }
         bricky.d = bricky.THREE;
         brick_level.d = brick_level.q;
+        previous_state.d = bricky.q;
 
         bricky.THREE:
         if(posClock.value == 1) {
@@ -138,6 +149,7 @@ module mojo_top (
         }
         direction.d = direction.q;
         brick_level.d = brick_level.q;
+        previous_state.d = bricky.q;
 
         bricky.FOUR:
           if(brick_level.q != 12) {
@@ -146,8 +158,10 @@ module mojo_top (
           else {
             brick_level.d = 0;
           }
-          bricky.d = bricky.THREE;
+
+          bricky.d = previous_state.q;
           direction.d = direction.q;
+          previous_state.d = bricky.q;
         }
 
 
