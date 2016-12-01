@@ -127,6 +127,9 @@ module mojo_top (
           bricky.d = bricky.FOUR;
         }
 
+        led_ram.write_data = brick_pos.q;
+        led_ram.write_en = 1;
+        
         direction.d = direction.q;
         brick_level.d = brick_level.q;
         previous_state.d = bricky.q;
@@ -136,19 +139,27 @@ module mojo_top (
           0:
           if(brick_pos.q != hE000) {
             brick_pos.d = brick_pos.q << 1;
+            led_ram.write_data = brick_pos.q << 1;
+            led_ram.write_en = 1;
             direction.d = direction.q;
           }
           else {
             brick_pos.d = brick_pos.q;
+            led_ram.write_data = brick_pos.q;
+            led_ram.write_en = 1;
             direction.d = 1;
           }
           1:
           if(brick_pos.q != h0007) {
             brick_pos.d = brick_pos.q >> 1;
+            led_ram.write_data = brick_pos.q >> 1;
+            led_ram.write_en = 1;
             direction.d = direction.q;
           }
           else {
             brick_pos.d = brick_pos.q;
+            led_ram.write_data = brick_pos.q;
+            led_ram.write_en = 1;
             direction.d = 0;
           }
         }
