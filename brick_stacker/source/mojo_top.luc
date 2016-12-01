@@ -27,17 +27,17 @@ module mojo_top (
       .rst(rst){
         led_test ledMtest;
         led_matrix ledM;
-        counter clocky(#SIZE(1),#DIV(16));  //smaller the faster the refresh
-        dff brick_pos[16](#INIT(h0007));
-        dff direction[1](#INIT(0));
+        counter clocky(#SIZE(1),#DIV(16));  //must be the same as led_Matrix DIV
+        dff brick_pos[16](#INIT(h0007));    //tracks position of brick
+        dff direction[1](#INIT(0));         //sets direction to shift
+        dff brick_level[4](#INIT(0));
         fsm bricky (#INIT(ONE)) = {ONE,TWO, THREE, FOUR};
       }
     }
 
-    //this is not in use but left here for easy access when needed
     .clk(clocky.value) {
       .rst(rst){
-        counter posClock(#SIZE(1),#DIV(4));  //smaller the faster the refresh
+        counter posClock(#SIZE(1),#DIV(5));  //dividing the led scan clock by 2^3
 
       }
     }
@@ -89,7 +89,7 @@ module mojo_top (
           }
 
           direction.d = direction.q;
-
+          brick_level.d = brick_level.q;
         bricky.TWO:
           case(direction.q) {
             0:
@@ -112,28 +112,38 @@ module mojo_top (
               }
           }
 
+          brick_level.d = brick_level.q;
           bricky.d = bricky.THREE;
+
         bricky.THREE:
           if(posClock.value == 1) {
             bricky.d = bricky.THREE;
+            brick_level.d = brick_level.q;
           }
           else {
+            if(brick_level.q != 12) {
+              brick_level.d = brick_level.q + 3;
+            }
+            else {
+              brick_level.d = 0;
+            }
             bricky.d = bricky.ONE;
           }
           direction.d = direction.q;
       }
 
 
-      led_pattern[0] = brick_pos.q;
-      led_pattern[1] = brick_pos.q;
-      led_pattern[2] = brick_pos.q;
-      for (i = 3; i < led_pattern.WIDTH[0]; i++) {
+      for (i = 0; i < led_pattern.WIDTH[0]; i++) {
 
-        if(i == 0 || i == 1 || i == 2)
-          led_pattern[i] = h0380;
-        else
+//        if(i == 0 || i == 1 || i == 2)
+//          led_pattern[i] = h0380;
+//        else
           led_pattern[i] = h0000;
       }
+
+      led_pattern[brick_level.q] = brick_pos.q;
+      led_pattern[brick_level.q+1] = brick_pos.q;
+      led_pattern[brick_level.q+2] = brick_pos.q;
 
       led = direction.q;
       ledM.pattern = led_pattern;
