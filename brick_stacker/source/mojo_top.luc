@@ -27,10 +27,8 @@ module mojo_top (
       reset_conditioner reset_cond;
       button_conditioner butt;
       edge_detector butt_edge(#RISE(0),#FALL(1));
-      simple_ram led_ram(#SIZE(16),#DEPTH(16));
 
       .rst(rst){
-        led_test ledMtest;
         led_matrix ledM;
         counter clocky(#SIZE(1),#DIV(16));  //must be the same as led_Matrix DIV
         dff brick_pos[16](#INIT(h0007));    //tracks position of brick
@@ -38,9 +36,14 @@ module mojo_top (
         dff brick_level[4](#INIT(0));       //tells you which level is the brick moving on
         dff previous_state[2](#INIT(0));     //remembers the previous_state for button irq
         dff j[4](#INIT(0));
-        fsm bricky (#INIT(INIT)) = {INIT, ONE, TWO, THREE, FOUR};
 
-        dff edge_detected[1](#INIT(0));
+        dff level_one[16](#INIT(h0007));    //stores level one brick pos
+        dff level_two[16](#INIT(h0000));    //stores level two brick pos
+        dff level_three[16](#INIT(h0000));  //stores level three brick pos
+        dff level_four[16](#INIT(h0000));   //stores level four brick pos
+        dff level_five[16](#INIT(h0000));   //stores level five brick pos
+
+        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END};
       }
     }
 
@@ -50,29 +53,6 @@ module mojo_top (
 
       }
     }
-    //  always {
-    //   //initializing the led pattern to draw a 3x3 cube at the bottom
-    //   for (i = 0; i < led_pattern.WIDTH[0]; i++) {
-    //
-    //     if(i == 0 || i == 1 || i == 2)
-    //       led_pattern[i] = h0380;
-    //     else
-    //       led_pattern[i] = h0000;
-    //   }
-    //
-    //   case(posClock.value) {
-    //     0:
-    //       led_pattern[0] = h0380;
-    //       led_pattern[1] = h0380;
-    //       led_pattern[2] = h0380;
-    //     1:
-    //       led_pattern[0] = h0007;
-    //       led_pattern[1] = h0007;
-    //       led_pattern[2] = h0007;
-    //   }
-    //
-    //   ledM.pattern = led_pattern;
-    //  }
 
     always {
       reset_cond.in = ~rst_n; // input raw inverted reset signal
@@ -81,11 +61,8 @@ module mojo_top (
       butt.in = button;
       butt_edge.in = butt.out;
 
-      led_ram.address = 0; // use brick_level as the address
-      led_ram.write_data = h0000;      // don't care
-      led_ram.write_en = 0;            // read by default
+      led = h00;
 
-      led = led_ram.read_data;
       spi_miso = bz;          // not using SPI
       spi_channel = bzzzz;    // not using flags
       avr_rx = bz;            // not using serial port
@@ -99,120 +76,129 @@ module mojo_top (
       }
 
       case(bricky.q) {
-        bricky.INIT:
-          if(j.q != 15) {
-            led_ram.address = j.q;
-            led_ram.write_data = h0007;
-            led_ram.write_en = 1;
-            j.d = j.q + 1;
-            bricky.d = bricky.INIT;
-          }
-          else {
-            led_ram.write_en = 0;
-            led_ram.address = 0;
-            bricky.d = bricky.ONE;
-          }
-
-        bricky.ONE:
+        bricky.SCREEN_REFRESH:
         if(posClock.value == 1) {
           brick_pos.d = brick_pos.q;
-          bricky.d = bricky.TWO;
+          bricky.d = bricky.SHIFT_BRICK;
         }
         else {
           brick_pos.d = brick_pos.q;
-          bricky.d = bricky.ONE;
+          bricky.d = bricky.SCREEN_REFRESH;
         }
 
         if(butt_edge.out) {
-          bricky.d = bricky.FOUR;
+          bricky.d = bricky.NEXT_LEVEL;
         }
 
-        led_ram.write_data = brick_pos.q;
-        led_ram.write_en = 1;
-        
         direction.d = direction.q;
         brick_level.d = brick_level.q;
         previous_state.d = bricky.q;
 
-        bricky.TWO:
+        bricky.SHIFT_BRICK:
         case(direction.q) {
           0:
           if(brick_pos.q != hE000) {
             brick_pos.d = brick_pos.q << 1;
-            led_ram.write_data = brick_pos.q << 1;
-            led_ram.write_en = 1;
+            case(brick_level.q) {
+              0:
+                level_one.d = brick_pos.q << 1;
+              3:
+                level_two.d = brick_pos.q << 1;
+              6:
+                level_three.d = brick_pos.q << 1;
+              9:
+                level_four.d = brick_pos.q << 1;
+              12:
+                level_five.d = brick_pos.q << 1;
+            }
             direction.d = direction.q;
           }
           else {
             brick_pos.d = brick_pos.q;
-            led_ram.write_data = brick_pos.q;
-            led_ram.write_en = 1;
             direction.d = 1;
           }
           1:
           if(brick_pos.q != h0007) {
             brick_pos.d = brick_pos.q >> 1;
-            led_ram.write_data = brick_pos.q >> 1;
-            led_ram.write_en = 1;
+            case(brick_level.q) {
+              0:
+                level_one.d = brick_pos.q >> 1;
+              3:
+                level_two.d = brick_pos.q >> 1;
+              6:
+                level_three.d = brick_pos.q >> 1;
+              9:
+                level_four.d = brick_pos.q >> 1;
+              12:
+                level_five.d = brick_pos.q >> 1;
+            }
             direction.d = direction.q;
           }
           else {
             brick_pos.d = brick_pos.q;
-            led_ram.write_data = brick_pos.q;
-            led_ram.write_en = 1;
             direction.d = 0;
           }
         }
 
         if(butt_edge.out) {
-          bricky.d = bricky.FOUR;
+          bricky.d = bricky.NEXT_LEVEL;
         }
-        bricky.d = bricky.THREE;
+        bricky.d = bricky.DRAW_BRICK;
         brick_level.d = brick_level.q;
         previous_state.d = bricky.q;
 
-        bricky.THREE:
+        bricky.DRAW_BRICK:
         if(posClock.value == 1) {
-          bricky.d = bricky.THREE;
+          bricky.d = bricky.DRAW_BRICK;
         }
         else {
-          bricky.d = bricky.ONE;
+          bricky.d = bricky.SCREEN_REFRESH;
         }
 
         if(butt_edge.out) {
-          bricky.d = bricky.FOUR;
+          bricky.d = bricky.NEXT_LEVEL;
         }
         direction.d = direction.q;
         brick_level.d = brick_level.q;
         previous_state.d = bricky.q;
 
-        bricky.FOUR:
+        bricky.NEXT_LEVEL:
           if(brick_level.q != 12) {
             brick_level.d = brick_level.q + 3;
+            bricky.d = previous_state.q;
           }
           else {
-            brick_level.d = 0;
+            //brick_level.d = 0;
+            bricky.d = bricky.END;
           }
 
-          bricky.d = previous_state.q;
           direction.d = direction.q;
           previous_state.d = bricky.q;
-        }
 
-
+        bricky.END:
+          bricky.d = bricky.END;
+      }
 
       led_pattern[brick_level.q] = brick_pos.q;
       led_pattern[brick_level.q+1] = brick_pos.q;
       led_pattern[brick_level.q+2] = brick_pos.q;
+      led_pattern[0] = level_one.q;
+      led_pattern[1] = level_one.q;
+      led_pattern[2] = level_one.q;
+      led_pattern[3] = level_two.q;
+      led_pattern[4] = level_two.q;
+      led_pattern[5] = level_two.q;
+      led_pattern[6] = level_three.q;
+      led_pattern[7] = level_three.q;
+      led_pattern[8] = level_three.q;
+      led_pattern[9] = level_four.q;
+      led_pattern[10] = level_four.q;
+      led_pattern[11] = level_four.q;
+      led_pattern[12] = level_five.q;
+      led_pattern[13] = level_five.q;
+      led_pattern[14] = level_five.q;
 
-      //led = direction.q;
-      ledM.pattern[0] = led_ram.read_data;
-      ledM.pattern[15:1] = led_pattern[15:1];
-
-      // for (i = 0; i < 16; i++) {
-      //   led_ram.address = i;
-      //   ledM.pattern[i] = h0007;
-      // }
-
+      ledM.pattern[15:0] = led_pattern[15:0];
+      led = direction.q;
     }
   }
