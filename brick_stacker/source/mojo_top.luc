@@ -11,12 +11,12 @@ module mojo_top (
   input avr_tx,           // AVR TX (FPGA RX)
   output avr_rx,          // AVR RX (FPGA TX)
   input avr_rx_busy,      // AVR RX buffer full
-  input io_button[5],
   output a[16],
   output c[16],
   input button
   ) {
 
+    alu16 alu;
     sig rst;              // reset signal
     sig led_pattern[16][16];  //sig to store led patterns for all 16 rows
     var i;
@@ -34,8 +34,7 @@ module mojo_top (
         dff brick_pos[16](#INIT(h0007));    //tracks position of brick
         dff direction[1](#INIT(0));         //sets direction to shift
         dff brick_level[4](#INIT(0));       //tells you which level is the brick moving on
-        dff previous_state[2](#INIT(0));     //remembers the previous_state for button irq
-        dff j[4](#INIT(0));
+        dff previous_state[3](#INIT(0));     //remembers the previous_state for button irq
 
         dff level_one[16](#INIT(h0007));    //stores level one brick pos
         dff level_two[16](#INIT(h0000));    //stores level two brick pos
@@ -50,7 +49,6 @@ module mojo_top (
     .clk(clocky.value) {
       .rst(rst){
         counter posClock(#SIZE(1),#DIV(3));  //dividing the led scan clock by 2^3
-
       }
     }
 
@@ -67,9 +65,12 @@ module mojo_top (
       spi_channel = bzzzz;    // not using flags
       avr_rx = bz;            // not using serial port
 
+	    alu.a = h00;
+	    alu.b = h00;
+	    alu.alufn = h00;
+
       a = ledM.a;             //set anode pins to output from ledM module
       c = ledM.c;             //set cathode pins to output from ledM module
-      j.d = h0;
 
       for (i = 0; i < led_pattern.WIDTH[0]; i++) {
         led_pattern[i] = h0000;
@@ -77,98 +78,108 @@ module mojo_top (
 
       case(bricky.q) {
         bricky.SCREEN_REFRESH:
-        if(posClock.value == 1) {
-          brick_pos.d = brick_pos.q;
-          bricky.d = bricky.SHIFT_BRICK;
-        }
-        else {
-          brick_pos.d = brick_pos.q;
-          bricky.d = bricky.SCREEN_REFRESH;
-        }
+          if(posClock.value == 1) {
+            brick_pos.d = brick_pos.q;
+            bricky.d = bricky.SHIFT_BRICK;
+          }
+          else {
+            brick_pos.d = brick_pos.q;
+            bricky.d = bricky.SCREEN_REFRESH;
+          }
 
-        if(butt_edge.out) {
-          bricky.d = bricky.NEXT_LEVEL;
-        }
+          if(butt_edge.out) {
+            bricky.d = bricky.NEXT_LEVEL;
+          }
 
-        direction.d = direction.q;
-        brick_level.d = brick_level.q;
-        previous_state.d = bricky.q;
+          direction.d = direction.q;
+          brick_level.d = brick_level.q;
+          previous_state.d = bricky.q;
 
         bricky.SHIFT_BRICK:
-        case(direction.q) {
-          0:
-          if(brick_pos.q != hE000) {
-            brick_pos.d = brick_pos.q << 1;
-            case(brick_level.q) {
-              0:
-                level_one.d = brick_pos.q << 1;
-              3:
-                level_two.d = brick_pos.q << 1;
-              6:
-                level_three.d = brick_pos.q << 1;
-              9:
-                level_four.d = brick_pos.q << 1;
-              12:
-                level_five.d = brick_pos.q << 1;
-            }
-            direction.d = direction.q;
-          }
-          else {
-            brick_pos.d = brick_pos.q;
-            direction.d = 1;
-          }
-          1:
-          if(brick_pos.q != h0007) {
-            brick_pos.d = brick_pos.q >> 1;
-            case(brick_level.q) {
-              0:
-                level_one.d = brick_pos.q >> 1;
-              3:
-                level_two.d = brick_pos.q >> 1;
-              6:
-                level_three.d = brick_pos.q >> 1;
-              9:
-                level_four.d = brick_pos.q >> 1;
-              12:
-                level_five.d = brick_pos.q >> 1;
-            }
-            direction.d = direction.q;
-          }
-          else {
-            brick_pos.d = brick_pos.q;
-            direction.d = 0;
-          }
-        }
+          case(direction.q) {
+            0:
+            if(brick_pos.q != hE000) {
+              alu.a = brick_pos.q;
+              alu.b = 1;
+              alu.alufn = h20; //SHL
+              brick_pos.d = alu.out;
+              case(brick_level.q) {
+                0:
+                  level_one.d = alu.out;
+                3:
+                  level_two.d = alu.out;
+                6:
+                  level_three.d = alu.out;
+                9:
+                  level_four.d = alu.out;
+                12:
+                  level_five.d = alu.out;
+              }
+              direction.d = direction.q;
 
-        if(butt_edge.out) {
-          bricky.d = bricky.NEXT_LEVEL;
-        }
-        bricky.d = bricky.DRAW_BRICK;
-        brick_level.d = brick_level.q;
-        previous_state.d = bricky.q;
+
+            }
+            else {
+              brick_pos.d = brick_pos.q;
+              direction.d = 1;
+            }
+            1:
+              if(brick_pos.q != h0007) {
+                alu.a = brick_pos.q;
+                alu.b = 1;
+                alu.alufn = h21; //SHR
+                brick_pos.d = alu.out;
+                case(brick_level.q) {
+                  0:
+                    level_one.d = alu.out;
+                  3:
+                    level_two.d = alu.out;
+                  6:
+                    level_three.d = alu.out;
+                  9:
+                    level_four.d = alu.out;
+                  12:
+                    level_five.d = alu.out;
+                }
+                direction.d = direction.q;
+              }
+              else {
+                brick_pos.d = brick_pos.q;
+                direction.d = 0;
+              }
+          }
+
+          if(butt_edge.out) {
+            bricky.d = bricky.NEXT_LEVEL;
+          }
+          bricky.d = bricky.DRAW_BRICK;
+          brick_level.d = brick_level.q;
+          previous_state.d = bricky.q;
 
         bricky.DRAW_BRICK:
-        if(posClock.value == 1) {
-          bricky.d = bricky.DRAW_BRICK;
-        }
-        else {
-          bricky.d = bricky.SCREEN_REFRESH;
-        }
+          if(posClock.value == 1) {
+            bricky.d = bricky.DRAW_BRICK;
+          }
+          else {
+            bricky.d = bricky.SCREEN_REFRESH;
+          }
 
-        if(butt_edge.out) {
-          bricky.d = bricky.NEXT_LEVEL;
-        }
-        direction.d = direction.q;
-        brick_level.d = brick_level.q;
-        previous_state.d = bricky.q;
+          if(butt_edge.out) {
+            bricky.d = bricky.NEXT_LEVEL;
+          }
+          direction.d = direction.q;
+          brick_level.d = brick_level.q;
+          previous_state.d = bricky.q;
 
         bricky.NEXT_LEVEL:
           if(brick_level.q != 12) {
-            brick_level.d = brick_level.q + 3;
+            alu.a = brick_level.q;
+            alu.b = 3;
+            alu.alufn = h00;  //ADD
+            brick_level.d = alu.out;
             bricky.d = previous_state.q;
           }
           else {
-            //brick_level.d = 0;
             bricky.d = bricky.END;
           }
 
@@ -200,5 +211,5 @@ module mojo_top (
 
       ledM.pattern[15:0] = led_pattern[15:0];
       led = direction.q;
-    }
+     }
   }
