@@ -46,7 +46,7 @@ module mojo_top (
         dff score[12](#INIT(h000));         //store score for entire game
         dff clock_select[2](#INIT(h0));
         dff clock_speed[1](#INIT(h0));
-        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END};
+        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END, LEVEL_TWO};
 
         multi_seven_seg seg;
       }
@@ -142,7 +142,8 @@ module mojo_top (
                   level_two.d = alu.out;
                 6:
                   level_three.d = alu.out;
-                  clock_select.d = 1;
+                  if(clock_select.q != 2)
+                    clock_select.d = 1;
                 9:
                   level_four.d = alu.out;
                 12:
@@ -215,7 +216,7 @@ module mojo_top (
             score.d = score.q + 1;
           }
           else {
-            bricky.d = bricky.END;
+            bricky.d = bricky.LEVEL_TWO;
           }
 
           direction.d = direction.q;
@@ -223,6 +224,17 @@ module mojo_top (
 
         bricky.END:
           bricky.d = bricky.END;
+
+
+        bricky.LEVEL_TWO:
+          brick_level.d = 3;
+          level_one.d = level_five.q;
+          level_two.d = h0000;
+          level_three.d = h0000;
+          level_four.d = h0000;
+          level_five.d = h0000;
+
+          bricky.d = bricky.SCREEN_REFRESH;
       }
 
       led_pattern[brick_level.q] = brick_pos.q;
