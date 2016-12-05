@@ -11,6 +11,8 @@ module mojo_top (
   input avr_tx,           // AVR TX (FPGA RX)
   output avr_rx,          // AVR RX (FPGA TX)
   input avr_rx_busy,      // AVR RX buffer full
+  output io_seg [8],      // 7-segment LEDs on IO Shield
+  output io_sel [4],      // Digit select on IO Shield
   output a[16],
   output c[16],
   input button
@@ -19,6 +21,7 @@ module mojo_top (
     alu16 alu;
     sig rst;              // reset signal
     sig led_pattern[16][16];  //sig to store led patterns for all 16 rows
+
     var i;
 
     .clk(clk) {
@@ -41,8 +44,11 @@ module mojo_top (
         dff level_three[16](#INIT(h0000));  //stores level three brick pos
         dff level_four[16](#INIT(h0000));   //stores level four brick pos
         dff level_five[16](#INIT(h0000));   //stores level five brick pos
+        dff score[12](#INIT(h000));         //store score for entire game
 
         fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END};
+
+        multi_seven_seg seg;
       }
     }
 
@@ -56,14 +62,19 @@ module mojo_top (
       reset_cond.in = ~rst_n; // input raw inverted reset signal
       rst = reset_cond.out;   // conditioned reset
 
-      butt.in = button;
-      butt_edge.in = butt.out;
-
-      led = h00;
-
       spi_miso = bz;          // not using SPI
       spi_channel = bzzzz;    // not using flags
       avr_rx = bz;            // not using serial port
+
+      led = h00;
+
+      //seg.values = dec_ctr.digits;
+      seg.values = {4h0,score.q[11:8],score.q[7:4],score.q[3:0]};
+      io_seg = ~seg.seg; // connect segments to the driver
+      io_sel = ~seg.sel; // connect digit select to the driver
+
+      butt.in = button;
+      butt_edge.in = butt.out;
 
 	    alu.a = h00;
 	    alu.b = h00;
@@ -178,6 +189,7 @@ module mojo_top (
             alu.alufn = h00;  //ADD
             brick_level.d = alu.out;
             bricky.d = previous_state.q;
+            score.d = score.q + 1;
           }
           else {
             bricky.d = bricky.END;
@@ -210,6 +222,6 @@ module mojo_top (
       led_pattern[14] = level_five.q;
 
       ledM.pattern[15:0] = led_pattern[15:0];
-      led = direction.q;
+      led = score.q;
      }
   }
