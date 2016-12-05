@@ -8,7 +8,7 @@ module led_matrix (
 
     .clk(clk) {
       .rst(rst){
-        counter slowclock(#SIZE(4),#DIV(16));  //smaller the faster the refresh
+        counter slowclock(#SIZE(4),#DIV(10));  //smaller the faster the refresh
         dff cSignal[16](.rst(rst)); //D flip-flip to store cathode signal
         dff aSignal[16](.rst(rst)); //D flip-flip to store anode signal
       }

@@ -21,7 +21,6 @@ module mojo_top (
     alu16 alu;
     sig rst;              // reset signal
     sig led_pattern[16][16];  //sig to store led patterns for all 16 rows
-
     var i;
 
     .clk(clk) {
@@ -33,7 +32,7 @@ module mojo_top (
 
       .rst(rst){
         led_matrix ledM;
-        counter clocky(#SIZE(1),#DIV(16));  //must be the same as led_Matrix DIV
+        counter clocky(#SIZE(1),#DIV(10));  //must be the same as led_Matrix DIV
         dff brick_pos[16](#INIT(h0007));    //tracks position of brick
         dff direction[1](#INIT(0));         //sets direction to shift
         dff brick_level[4](#INIT(0));       //tells you which level is the brick moving on
@@ -45,7 +44,8 @@ module mojo_top (
         dff level_four[16](#INIT(h0000));   //stores level four brick pos
         dff level_five[16](#INIT(h0000));   //stores level five brick pos
         dff score[12](#INIT(h000));         //store score for entire game
-
+        dff clock_select[2](#INIT(h0));
+        dff clock_speed[1](#INIT(h0));
         fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END};
 
         multi_seven_seg seg;
@@ -54,7 +54,9 @@ module mojo_top (
 
     .clk(clocky.value) {
       .rst(rst){
-        counter posClock(#SIZE(1),#DIV(3));  //dividing the led scan clock by 2^3
+        counter posClock10(#SIZE(1),#DIV(10));  //dividing the led scan clock by 2^3, bigger the slower
+        counter posClock9(#SIZE(1),#DIV(9));  //dividing the led scan clock by 2^3, bigger the slower
+        counter posClock8(#SIZE(1),#DIV(8));  //dividing the led scan clock by 2^3, bigger the slower
       }
     }
 
@@ -87,9 +89,19 @@ module mojo_top (
         led_pattern[i] = h0000;
       }
 
+      case(clock_select.q) {
+        0:
+          clock_speed.d = posClock10.value;
+        1:
+          clock_speed.d = posClock9.value;
+        2:
+          clock_speed.d = posClock8.value;
+        }
+
+
       case(bricky.q) {
         bricky.SCREEN_REFRESH:
-          if(posClock.value == 1) {
+          if(clock_speed.q  == 1) {
             brick_pos.d = brick_pos.q;
             bricky.d = bricky.SHIFT_BRICK;
           }
@@ -101,6 +113,15 @@ module mojo_top (
           if(butt_edge.out) {
             bricky.d = bricky.NEXT_LEVEL;
           }
+
+          case(clock_select.q) {
+            0:
+              clock_speed.d = posClock10.value;
+            1:
+              clock_speed.d = posClock9.value;
+            2:
+              clock_speed.d = posClock8.value;
+            }
 
           direction.d = direction.q;
           brick_level.d = brick_level.q;
@@ -121,10 +142,12 @@ module mojo_top (
                   level_two.d = alu.out;
                 6:
                   level_three.d = alu.out;
+                  clock_select.d = 1;
                 9:
                   level_four.d = alu.out;
                 12:
                   level_five.d = alu.out;
+                  clock_select.d = 2;
               }
               direction.d = direction.q;
 
@@ -168,7 +191,7 @@ module mojo_top (
           previous_state.d = bricky.q;
 
         bricky.DRAW_BRICK:
-          if(posClock.value == 1) {
+          if(clock_speed.q == 1) {
             bricky.d = bricky.DRAW_BRICK;
           }
           else {
