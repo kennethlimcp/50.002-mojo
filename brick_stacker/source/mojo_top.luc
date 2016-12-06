@@ -48,7 +48,7 @@ module mojo_top (
         dff score[12](#INIT(h000));         //store score for entire game
         dff clock_select[2](#INIT(h0));
         dff clock_speed[1](#INIT(h0));
-        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, UPDATE_PATTERN, TEST_ALU};
+        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, CHECK_LEVEL, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, UPDATE_PATTERN, TEST_ALU};
 
         multi_seven_seg seg;
         modulus mod;
@@ -287,29 +287,35 @@ module mojo_top (
           }
 
          if(alu.out == 0) {
-            bricky.d = bricky.NEXT_LEVEL;
+            bricky.d = bricky.CHECK_LEVEL;
          }
          else {
             bricky.d = bricky.END;
          }
 
-        bricky.NEXT_LEVEL:
+        bricky.CHECK_LEVEL:
           //replace with alu
           alu.a = brick_level.q ;
           alu.b = 12;
           alu.alufn = h33; //CMPEQ
           if(brick_level.q == 12) {
             bricky.d = bricky.LEVEL_TWO;
+            previous_state.d = bricky.q;
           }
           else {
-            alu.a = brick_level.q;
-            alu.b = 3;
-            alu.alufn = h00;  //ADD
-            brick_level.d = alu.out;
-            bricky.d = previous_state.q;
-            score.d = score.q + 25;
+            bricky.d = bricky.NEXT_LEVEL;
           }
 
+
+        bricky.NEXT_LEVEL:
+          alu.a = brick_level.q;
+          alu.b = 3;
+          alu.alufn = h00;  //ADD
+          brick_level.d = alu.out;
+          bricky.d = previous_state.q;
+          score.d = score.q + 25;
+
+          bricky.d = previous_state.q;
           direction.d = direction.q;
           previous_state.d = bricky.q;
 
