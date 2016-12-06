@@ -8,6 +8,7 @@
     <src>multi_seven_seg.luc</src>
     <src>led_test.luc</src>
     <src top="true">mojo_top.luc</src>
+    <src>modulus.v</src>
     <src>zvn.luc</src>
     <src>adder16.luc</src>
     <src>decimal_counter.luc</src>

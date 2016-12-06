@@ -51,6 +51,8 @@ module mojo_top (
         fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, TEST_ALU};
 
         multi_seven_seg seg;
+        modulus mod;
+        modulus mod1;
       }
     }
 
@@ -61,6 +63,11 @@ module mojo_top (
         counter posClock8(#SIZE(1),#DIV(8));  //dividing the led scan clock by 2^3, bigger the slower
       }
     }
+
+    sig third_dig[4];
+    sig second_dig[4];
+    sig first_dig[4];
+
 
     always {
       reset_cond.in = ~rst_n; // input raw inverted reset signal
@@ -73,8 +80,16 @@ module mojo_top (
 
       led = h00;
 
-      //seg.values = dec_ctr.digits;
-      seg.values = {4h0,score.q[11:8],score.q[7:4],score.q[3:0]};
+      third_dig = score.q/100;  //get third digit
+      mod.num = score.q;
+      mod.divider = 100;
+      second_dig = mod.out/10;  //gets 2nd digit
+      mod1.num = mod.out;
+      mod1.divider = 10;
+      first_dig = mod1.out;
+      //seg.values = {4h0,score.q[11:8],score.q[7:4],score.q[3:0]};
+      seg.values = {4h0,third_dig,second_dig,first_dig};
+
       io_seg = ~seg.seg; // connect segments to the driver
       io_sel = ~seg.sel; // connect digit select to the driver
 
@@ -278,7 +293,7 @@ module mojo_top (
             alu.alufn = h00;  //ADD
             brick_level.d = alu.out;
             bricky.d = previous_state.q;
-            score.d = score.q + 1;
+            score.d = score.q + 25;
           }
 
           direction.d = direction.q;
@@ -319,5 +334,7 @@ module mojo_top (
       led_pattern[14] = level_five.q;
 
       ledM.pattern[15:0] = led_pattern[15:0];
+
+
      }
   }
