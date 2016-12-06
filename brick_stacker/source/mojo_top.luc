@@ -15,7 +15,8 @@ module mojo_top (
   output io_sel [4],      // Digit select on IO Shield
   output a[16],
   output c[16],
-  input button
+  input button,
+  input io_dip[2]
   ) {
 
     alu16 alu;
@@ -79,6 +80,8 @@ module mojo_top (
 
 
       led = h00;
+      led[0] = io_dip[0];
+      led[1] = io_dip[1];
 
       third_dig = score.q/100;  //get third digit
       mod.num = score.q;
@@ -266,6 +269,20 @@ module mojo_top (
               previous_brick_pos.d = alu.out;
           }
 
+          if(io_dip[0]) previous_brick_pos.d = h0380;
+          if(io_dip[1] && brick_level.q == 3) {
+            alu.b = h0180;
+            previous_brick_pos.d = alu.out;
+          }
+          if(io_dip[1] && brick_level.q == 6) {
+            alu.b = h0080;
+            previous_brick_pos.d = alu.out;
+          }
+          if(io_dip[1] && brick_level.q == 9) {
+            alu.b = hE000;
+            previous_brick_pos.d = alu.out;
+          }
+          
           bricky.d = bricky.UPDATE_PATTERN;
 
        bricky.UPDATE_PATTERN:
@@ -305,7 +322,6 @@ module mojo_top (
           else {
             bricky.d = bricky.NEXT_LEVEL;
           }
-
 
         bricky.NEXT_LEVEL:
           alu.a = brick_level.q;

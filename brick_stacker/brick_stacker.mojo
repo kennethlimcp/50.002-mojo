@@ -17,7 +17,6 @@
     <src>compare16.luc</src>
     <src>shift16.luc</src>
     <ucf>ledmatrix.ucf</ucf>
-    <ucf lib="true">io_shield.ucf</ucf>
     <ucf lib="true">mojo.ucf</ucf>
     <component>decoder.luc</component>
     <component>simple_ram.v</component>
