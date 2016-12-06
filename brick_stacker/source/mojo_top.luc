@@ -21,6 +21,7 @@ module mojo_top (
     alu16 alu;
     sig rst;              // reset signal
     sig led_pattern[16][16];  //sig to store led patterns for all 16 rows
+    sig tmp_brick_pos[16];
     var i;
 
     .clk(clk) {
@@ -37,6 +38,7 @@ module mojo_top (
         dff direction[1](#INIT(0));         //sets direction to shift
         dff brick_level[4](#INIT(0));       //tells you which level is the brick moving on
         dff previous_state[3](#INIT(0));     //remembers the previous_state for button irq
+        dff previous_brick_pos[16](#INIT(0));     //remembers the previous_state for button irq
 
         dff level_one[16](#INIT(h0007));    //stores level one brick pos
         dff level_two[16](#INIT(h0000));    //stores level two brick pos
@@ -46,7 +48,7 @@ module mojo_top (
         dff score[12](#INIT(h000));         //store score for entire game
         dff clock_select[2](#INIT(h0));
         dff clock_speed[1](#INIT(h0));
-        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END, LEVEL_TWO};
+        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, TEST_ALU};
 
         multi_seven_seg seg;
       }
@@ -67,6 +69,7 @@ module mojo_top (
       spi_miso = bz;          // not using SPI
       spi_channel = bzzzz;    // not using flags
       avr_rx = bz;            // not using serial port
+
 
       led = h00;
 
@@ -100,8 +103,19 @@ module mojo_top (
 
 
       case(bricky.q) {
+        bricky.TEST_ALU:
+          alu.a = hE000;
+          alu.b = hE000;
+          alu.alufn = h33; //CMPEQ
+          led = alu.out;
+
+          bricky.d = bricky.TEST_ALU;
+
         bricky.SCREEN_REFRESH:
-          if(clock_speed.q  == 1) {
+          alu.a = clock_speed.q ;
+          alu.b = 1;
+          alu.alufn = h33; //CMPEQ
+          if(alu.out == 1) {
             brick_pos.d = brick_pos.q;
             bricky.d = bricky.SHIFT_BRICK;
           }
@@ -111,7 +125,7 @@ module mojo_top (
           }
 
           if(butt_edge.out) {
-            bricky.d = bricky.NEXT_LEVEL;
+            bricky.d = bricky.CHECK_SCORE;
           }
 
           case(clock_select.q) {
@@ -130,39 +144,18 @@ module mojo_top (
         bricky.SHIFT_BRICK:
           case(direction.q) {
             0:
-            if(brick_pos.q != hE000) {
+              //replace with alu
               alu.a = brick_pos.q;
-              alu.b = 1;
-              alu.alufn = h20; //SHL
-              brick_pos.d = alu.out;
-              case(brick_level.q) {
-                0:
-                  level_one.d = alu.out;
-                3:
-                  level_two.d = alu.out;
-                6:
-                  level_three.d = alu.out;
-                  if(clock_select.q != 2)
-                    clock_select.d = 1;
-                9:
-                  level_four.d = alu.out;
-                12:
-                  level_five.d = alu.out;
-                  clock_select.d = 2;
+              alu.b = hE000;
+              alu.alufn = h33; //CMPEQ
+              if(brick_pos.q == hE000) {
+                brick_pos.d = brick_pos.q;
+                direction.d = 1;
               }
-              direction.d = direction.q;
-
-
-            }
-            else {
-              brick_pos.d = brick_pos.q;
-              direction.d = 1;
-            }
-            1:
-              if(brick_pos.q != h0007) {
+              else {
                 alu.a = brick_pos.q;
                 alu.b = 1;
-                alu.alufn = h21; //SHR
+                alu.alufn = h20; //SHL
                 brick_pos.d = alu.out;
                 case(brick_level.q) {
                   0:
@@ -171,28 +164,57 @@ module mojo_top (
                     level_two.d = alu.out;
                   6:
                     level_three.d = alu.out;
+                    if(clock_select.q != 2)
+                      clock_select.d = 1;
                   9:
                     level_four.d = alu.out;
                   12:
                     level_five.d = alu.out;
+                    clock_select.d = 2;
                 }
                 direction.d = direction.q;
               }
-              else {
-                brick_pos.d = brick_pos.q;
-                direction.d = 0;
+          1:
+            alu.a = brick_pos.q;
+            alu.b = h0007;
+            alu.alufn = h33; //CMPEQ
+            if(brick_pos.q == h0007) {
+              brick_pos.d = brick_pos.q;
+              direction.d = 0;
+            }
+            else {
+              alu.a = brick_pos.q;
+              alu.b = 1;
+              alu.alufn = h21; //SHR
+              brick_pos.d = alu.out;
+              case(brick_level.q) {
+                0:
+                  level_one.d = alu.out;
+                3:
+                  level_two.d = alu.out;
+                6:
+                  level_three.d = alu.out;
+                9:
+                  level_four.d = alu.out;
+                12:
+                  level_five.d = alu.out;
               }
+              direction.d = direction.q;
+            }
           }
 
           if(butt_edge.out) {
-            bricky.d = bricky.NEXT_LEVEL;
+            bricky.d = bricky.CHECK_SCORE;
           }
           bricky.d = bricky.DRAW_BRICK;
           brick_level.d = brick_level.q;
           previous_state.d = bricky.q;
 
         bricky.DRAW_BRICK:
-          if(clock_speed.q == 1) {
+          alu.a = clock_speed.q;
+          alu.b = 1;
+          alu.alufn = h33; //CMPEQ
+          if(alu.out == 1) {
             bricky.d = bricky.DRAW_BRICK;
           }
           else {
@@ -200,23 +222,63 @@ module mojo_top (
           }
 
           if(butt_edge.out) {
-            bricky.d = bricky.NEXT_LEVEL;
+            bricky.d = bricky.CHECK_SCORE;
           }
           direction.d = direction.q;
           brick_level.d = brick_level.q;
           previous_state.d = bricky.q;
 
+        bricky.CHECK_SCORE:
+          tmp_brick_pos = tmp_brick_pos;
+          alu.a = 1;
+          alu.b = 0;
+          alu.alufn = h33; //CMPEQ
+
+          case(brick_level.q) {
+            0:
+              tmp_brick_pos = level_one.q;
+            3:
+              tmp_brick_pos = previous_brick_pos.q & level_two.q;
+              alu.a = tmp_brick_pos;
+              if(alu.out == 0) level_two.d = tmp_brick_pos;
+            6:
+              tmp_brick_pos = previous_brick_pos.q & level_three.q;
+              alu.a = tmp_brick_pos;
+              if(alu.out == 0) level_three.d = tmp_brick_pos;
+            9:
+              tmp_brick_pos = previous_brick_pos.q & level_four.q;
+              alu.a = tmp_brick_pos;
+              if(alu.out == 0)level_four.d = tmp_brick_pos;
+            12:
+              tmp_brick_pos = previous_brick_pos.q & level_five.q;
+              alu.a = tmp_brick_pos;
+              if(alu.out == 0) level_five.d = tmp_brick_pos;
+          }
+
+         if(alu.out == 0) {
+            bricky.d = bricky.NEXT_LEVEL;
+         }
+         else {
+            bricky.d = bricky.END;
+         }
+
+         previous_brick_pos.d = tmp_brick_pos;
+
         bricky.NEXT_LEVEL:
-          if(brick_level.q != 12) {
+          //replace with alu
+          alu.a = brick_level.q ;
+          alu.b = 12;
+          alu.alufn = h33; //CMPEQ
+          if(brick_level.q == 12) {
+            bricky.d = bricky.LEVEL_TWO;
+          }
+          else {
             alu.a = brick_level.q;
             alu.b = 3;
             alu.alufn = h00;  //ADD
             brick_level.d = alu.out;
             bricky.d = previous_state.q;
             score.d = score.q + 1;
-          }
-          else {
-            bricky.d = bricky.LEVEL_TWO;
           }
 
           direction.d = direction.q;
@@ -257,6 +319,5 @@ module mojo_top (
       led_pattern[14] = level_five.q;
 
       ledM.pattern[15:0] = led_pattern[15:0];
-      led = score.q;
      }
   }
