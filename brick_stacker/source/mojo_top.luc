@@ -37,7 +37,7 @@ module mojo_top (
         dff brick_pos[16](#INIT(h0007));    //tracks position of brick
         dff direction[1](#INIT(0));         //sets direction to shift
         dff brick_level[4](#INIT(0));       //tells you which level is the brick moving on
-        dff previous_state[3](#INIT(0));     //remembers the previous_state for button irq
+        dff previous_state[4](#INIT(0));     //remembers the previous_state for button irq
         dff previous_brick_pos[16](#INIT(0));     //remembers the previous_state for button irq
 
         dff level_one[16](#INIT(h0007));    //stores level one brick pos
@@ -48,7 +48,7 @@ module mojo_top (
         dff score[12](#INIT(h000));         //store score for entire game
         dff clock_select[2](#INIT(h0));
         dff clock_speed[1](#INIT(h0));
-        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, TEST_ALU};
+        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, SHIFT_BRICK, DRAW_BRICK, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, UPDATE_PATTERN, TEST_ALU};
 
         multi_seven_seg seg;
         modulus mod;
@@ -245,29 +245,45 @@ module mojo_top (
 
         bricky.CHECK_SCORE:
           tmp_brick_pos = tmp_brick_pos;
-          alu.a = 1;
+          alu.a = previous_brick_pos.q;
           alu.b = 0;
-          alu.alufn = h33; //CMPEQ
+          alu.alufn = h18; //AND
 
           case(brick_level.q) {
             0:
-              tmp_brick_pos = level_one.q;
+              previous_brick_pos.d = level_one.q;
             3:
-              tmp_brick_pos = previous_brick_pos.q & level_two.q;
-              alu.a = tmp_brick_pos;
-              if(alu.out == 0) level_two.d = tmp_brick_pos;
+              alu.b = level_two.q;
+              previous_brick_pos.d = alu.out;
             6:
-              tmp_brick_pos = previous_brick_pos.q & level_three.q;
-              alu.a = tmp_brick_pos;
-              if(alu.out == 0) level_three.d = tmp_brick_pos;
+              alu.b = level_three.q;
+              previous_brick_pos.d = alu.out;
             9:
-              tmp_brick_pos = previous_brick_pos.q & level_four.q;
-              alu.a = tmp_brick_pos;
-              if(alu.out == 0)level_four.d = tmp_brick_pos;
+              alu.b = level_four.q;
+              previous_brick_pos.d = alu.out;
             12:
-              tmp_brick_pos = previous_brick_pos.q & level_five.q;
-              alu.a = tmp_brick_pos;
-              if(alu.out == 0) level_five.d = tmp_brick_pos;
+              alu.b = level_five.q;
+              previous_brick_pos.d = alu.out;
+          }
+
+          bricky.d = bricky.UPDATE_PATTERN;
+
+       bricky.UPDATE_PATTERN:
+        alu.a = previous_brick_pos.q;
+        alu.b = 0;
+        alu.alufn = h33; //CMPEQ
+
+        case(brick_level.q) {
+          0:
+            level_one.d = previous_brick_pos.q;
+          3:
+            if(alu.out == 0) level_two.d = previous_brick_pos.q;
+          6:
+            if(alu.out == 0) level_three.d = previous_brick_pos.q;
+          9:
+            if(alu.out == 0) level_four.d = previous_brick_pos.q;
+          12:
+            if(alu.out == 0) level_five.d = previous_brick_pos.q;
           }
 
          if(alu.out == 0) {
@@ -276,8 +292,6 @@ module mojo_top (
          else {
             bricky.d = bricky.END;
          }
-
-         previous_brick_pos.d = tmp_brick_pos;
 
         bricky.NEXT_LEVEL:
           //replace with alu
