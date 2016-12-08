@@ -49,7 +49,7 @@ module mojo_top (
         dff score[12](#INIT(h000));         //store score for entire game
         dff clock_select[2](#INIT(h0));
         dff clock_speed[1](#INIT(h0));
-        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, CHECK_DIRECTION, SHIFT_BRICK, DRAW_BRICK, CHECK_LEVEL, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, UPDATE_PATTERN, TEST_ALU};
+        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, CHECK_DIRECTION, SHIFT_BRICK, DRAW_BRICK, CHECK_LEVEL, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, UPDATE_SCORE, UPDATE_PATTERN, TEST_ALU};
 
         multi_seven_seg seg;
         modulus mod;
