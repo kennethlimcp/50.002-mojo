@@ -49,7 +49,7 @@ module mojo_top (
         dff score[12](#INIT(h000));         //store score for entire game
         dff clock_select[2](#INIT(h0));
         dff clock_speed[1](#INIT(h0));
-        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, CHECK_DIRECTION, SHIFT_BRICK, DRAW_BRICK, CHECK_LEVEL, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, UPDATE_SCORE, UPDATE_PATTERN, TEST_ALU};
+        fsm bricky (#INIT(SCREEN_REFRESH)) = {SCREEN_REFRESH, CHECK_DIRECTION, SHIFT_BRICK, DRAW_BRICK, UP_SPEED, CHECK_LEVEL, NEXT_LEVEL, END, LEVEL_TWO, CHECK_SCORE, UPDATE_SCORE, UPDATE_PATTERN, TEST_ALU};
 
         multi_seven_seg seg;
         modulus mod;
@@ -153,7 +153,7 @@ module mojo_top (
               clock_speed.d = posClock9.value;
             2:
               clock_speed.d = posClock8.value;
-            }
+          }
 
           direction.d = direction.q;
           brick_level.d = brick_level.q;
@@ -204,13 +204,10 @@ module mojo_top (
                   level_two.d = alu.out;
                 6:
                   level_three.d = alu.out;
-                  if(clock_select.q != 2)
-                    clock_select.d = 1;
                 9:
                   level_four.d = alu.out;
                 12:
                   level_five.d = alu.out;
-                  clock_select.d = 2;
               }
           1:
             alu.a = brick_pos.q;
@@ -231,14 +228,36 @@ module mojo_top (
             }
           }
 
+          bricky.d = bricky.UP_SPEED;
           if(butt_edge.out) {
             bricky.d = bricky.CHECK_SCORE;
           }
 
           direction.d = direction.q;
-          bricky.d = bricky.DRAW_BRICK;
           brick_level.d = brick_level.q;
           previous_state.d = bricky.q;
+
+        bricky.UP_SPEED:
+          alu.a = clock_select.q;
+          alu.b = 2;
+          alu.alufn = h33; //CMPEQ
+          case(brick_level.q) {
+            6:
+              if(alu.out == 0)
+                clock_select.d = 1;
+            12:
+              clock_select.d = 2;
+          }
+
+          bricky.d = bricky.DRAW_BRICK;
+          if(butt_edge.out) {
+            bricky.d = bricky.CHECK_SCORE;
+          }
+
+          direction.d = direction.q;
+          brick_level.d = brick_level.q;
+          previous_state.d = bricky.q;
+
 
         bricky.DRAW_BRICK:
           alu.a = clock_speed.q;
