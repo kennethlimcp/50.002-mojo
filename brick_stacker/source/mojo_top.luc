@@ -345,7 +345,7 @@ module mojo_top (
 
         bricky.UPDATE_SCORE:
           alu.a = score.q;
-          alu.b = 25;
+          alu.b = 10;
           alu.alufn = h00;  //ADD
           score.d = alu.out;
 
